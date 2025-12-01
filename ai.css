@@ -1,150 +1,110 @@
-// ai.js — bulletproof carousel: pages by visibleCount, both prev/next always functional.
-// Initializes multiple carousels when present by ID.
+/* ai.css — headings + carousel styles (shared) */
 
-(function () {
-  'use strict';
+/* keep 1cm left offset */
+.ai-wrap { padding-left: 1cm; padding-right: 18px; max-width: var(--max); margin: 0 auto; }
 
-  function Carousel(rootId) {
-    const root = document.getElementById(rootId);
-    if (!root) return;
+/* Section headings matching About Me */
+.section-title {
+  margin: 0 0 .4rem;
+  font-weight: 800;
+  color: #fff;
+  font-size: clamp(2rem, 3vw + 1rem, 3.2rem);
+  letter-spacing: .02em;
+  text-shadow: 0 0 18px rgba(124,249,255,.18);
+  text-align: left;
+}
 
-    const track = root.querySelector('.cards-track');
-    const slides = Array.from(root.querySelectorAll('.cards-slide'));
-    const prev = root.querySelector('.prev');
-    const next = root.querySelector('.next');
-    if (!track || slides.length === 0) return;
+.section-sub {
+  font-family: "Californian FB", "Garamond", serif;
+  font-size: 20px;
+  color: var(--muted);
+  margin: .2rem 0 1.2rem;
+  max-width: 75ch;
+}
 
-    let pageIndex = 0;
-    let slideWidth = 0;
-    let gapPx = 16;
-    let visibleCount = 1;
-    let pageCount = 1;
-    let maxPageIndex = 0;
+/* Interactive Components button (matches other site buttons but compact) */
+.interactive-btn {
+  display:inline-block;
+  padding: .6rem .9rem;
+  border-radius: 10px;
+  background: linear-gradient(90deg,#1fb8a7,#3bb0ff);
+  color: #021018;
+  font-weight:700;
+  text-decoration:none;
+  box-shadow: 0 6px 22px rgba(11,34,50,0.28);
+}
 
-    function readGap() {
-      try {
-        const cs = window.getComputedStyle(track);
-        const g = parseFloat(cs.gap);
-        gapPx = Number.isFinite(g) ? g : gapPx;
-      } catch (e) {}
-    }
+/* Carousel base */
+.cards-carousel { position: relative; margin-top: 1rem; z-index: 1; }
+.cards-wrapper { overflow: hidden; outline: none; }
+.cards-track {
+  display:flex;
+  gap:16px;
+  transition: transform 420ms cubic-bezier(.2,.9,.2,1);
+  will-change: transform;
+  padding-bottom:6px;
+  z-index:2;
+}
 
-    function measure() {
-      readGap();
-      const wrapper = track.parentElement;
-      const wrapperW = wrapper.getBoundingClientRect().width || document.documentElement.clientWidth;
+/* slides (3-up default) */
+.cards-slide { flex: 0 0 calc((100% - 32px) / 3); max-width: calc((100% - 32px) / 3); box-sizing: border-box; }
 
-      const measured = slides[0].offsetWidth || slides[0].getBoundingClientRect().width;
-      if (measured <= 0) {
-        slideWidth = Math.max(120, Math.floor((wrapperW - gapPx * 2) / 3));
-      } else {
-        slideWidth = measured;
-      }
+/* card visuals */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  display:flex;
+  flex-direction:column;
+  height:100%;
+  box-shadow: var(--shadow);
+}
+.media { display:block; }
+.media img { width:100%; height:220px; object-fit:cover; display:block; }
 
-      const itemTotal = slideWidth + gapPx;
-      visibleCount = Math.max(1, Math.floor((wrapperW + gapPx) / itemTotal));
-      pageCount = Math.max(1, Math.ceil(slides.length / visibleCount));
-      maxPageIndex = Math.max(0, pageCount - 1);
+/* body */
+.body { padding:14px; display:flex; flex-direction:column; gap:.4rem; }
+.card-title { margin:.1rem 0 .3rem; font-size:1.12rem; font-weight:700; color:var(--ink); }
+.card-desc { margin:0; color:var(--muted); font-size:.95rem; }
 
-      pageIndex = Math.min(Math.max(0, pageIndex), maxPageIndex);
-      applyTransform();
-      updateButtons();
-    }
+/* Controls always visible and above cards */
+.ctrl {
+  position:absolute;
+  top:50%;
+  transform:translateY(-50%);
+  border-radius:10px;
+  padding:.5rem .8rem;
+  background: rgba(15,19,24,0.95);
+  border: 1px solid rgba(255,255,255,0.06);
+  cursor:pointer;
+  color: var(--ink);
+  font-size:1.25rem;
+  width:44px; height:44px;
+  display:inline-flex; align-items:center; justify-content:center;
+  z-index:40;
+  backdrop-filter: blur(4px);
+}
+.prev { left:8px; }
+.next { right:8px; }
+.ctrl[disabled] { opacity:.35; cursor: default; pointer-events: auto; }
 
-    function applyTransform() {
-      const itemIndex = pageIndex * visibleCount;
-      const tx = -(itemIndex * (slideWidth + gapPx));
-      track.style.transform = `translate3d(${Math.round(tx)}px,0,0)`;
-    }
+/* responsive: 2-up then 1-up */
+@media (max-width:980px) {
+  .cards-slide { flex: 0 0 calc((100% - 16px) / 2); max-width: calc((100% - 16px) / 2); }
+  .media img { height:180px; }
+  .ctrl { width:40px; height:40px; font-size:1.1rem; }
+}
+@media (max-width:620px) {
+  .cards-slide { flex: 0 0 100%; max-width: 100%; }
+  .media img { height:260px; }
+  .prev { left:6px; }
+  .next { right:6px; }
+  .ctrl { width:38px; height:38px; }
+}
 
-    function updateButtons() {
-      if (prev) prev.disabled = pageIndex <= 0;
-      if (next) next.disabled = pageIndex >= maxPageIndex;
-    }
+/* small focus ring for accessibility */
+.ctrl:focus { outline: 3px solid rgba(124,249,255,0.12); }
 
-    function gotoPage(n) {
-      pageIndex = Math.min(Math.max(0, n), maxPageIndex);
-      applyTransform();
-      updateButtons();
-    }
-
-    if (prev) prev.addEventListener('click', () => gotoPage(pageIndex - 1));
-    if (next) next.addEventListener('click', () => gotoPage(pageIndex + 1));
-
-    // keyboard nav on wrapper
-    const wrapper = root.querySelector('.cards-wrapper');
-    if (wrapper) {
-      wrapper.addEventListener('keydown', (e) => {
-        if (e.key === 'ArrowLeft') { e.preventDefault(); gotoPage(pageIndex - 1); }
-        if (e.key === 'ArrowRight') { e.preventDefault(); gotoPage(pageIndex + 1); }
-      });
-    }
-
-    // touch swipe
-    let sx = 0, moved = false;
-    track.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; moved = false; }, { passive: true });
-    track.addEventListener('touchmove', () => { moved = true; }, { passive: true });
-    track.addEventListener('touchend', (e) => {
-      if (!moved) return;
-      const dx = e.changedTouches[0].clientX - sx;
-      if (Math.abs(dx) < 30) return;
-      gotoPage(pageIndex + (dx < 0 ? 1 : -1));
-    });
-
-    // mouse drag (desktop)
-    let dragging = false, dragStart = 0, dragCurrent = 0;
-    track.addEventListener('mousedown', (e) => {
-      dragging = true; dragStart = e.clientX; dragCurrent = dragStart; track.classList.add('is-dragging');
-      e.preventDefault();
-    });
-    window.addEventListener('mousemove', (e) => { if (!dragging) return; dragCurrent = e.clientX; });
-    window.addEventListener('mouseup', () => {
-      if (!dragging) return;
-      dragging = false; track.classList.remove('is-dragging');
-      const dx = dragCurrent - dragStart;
-      if (Math.abs(dx) > 40) gotoPage(pageIndex + (dx < 0 ? 1 : -1));
-    });
-
-    // recalc on image load inside carousel
-    slides.forEach(slide => {
-      const imgs = slide.querySelectorAll('img');
-      imgs.forEach(img => {
-        if (img.complete) setTimeout(measure, 20);
-        else {
-          img.addEventListener('load', () => setTimeout(measure, 20), { passive: true });
-          img.addEventListener('error', () => setTimeout(measure, 20), { passive: true });
-        }
-      });
-    });
-
-    // fonts ready
-    if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(() => setTimeout(measure, 20)).catch(() => {});
-    }
-
-    // resize debounce
-    let tid = null;
-    window.addEventListener('resize', () => { clearTimeout(tid); tid = setTimeout(measure, 120); });
-
-    // mutation observer for dynamic changes
-    const mo = new MutationObserver(() => setTimeout(measure, 20));
-    mo.observe(track, { childList: true, subtree: true });
-
-    // initial measure
-    setTimeout(measure, 80);
-
-    // expose API for debugging
-    root._carousel = { measure, gotoPage, state: () => ({ pageIndex, visibleCount, pageCount, maxPageIndex }) };
-  }
-
-  // init carousels if they exist
-  function initAll() {
-    Carousel('articles-carousel');
-    Carousel('projects-carousel');
-    Carousel('upcoming-carousel');
-    Carousel('home-projects-carousel'); // safe-noop if not present
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initAll);
-  else initAll();
-})();
+/* dragging state visuals */
+.cards-track.is-dragging { cursor: grabbing; cursor: -webkit-grabbing; user-select: none; }
